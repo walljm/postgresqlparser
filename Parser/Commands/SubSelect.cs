@@ -25,11 +25,12 @@
             }
         }
 
-        public string Print(int indent)
+        public string Print(int indentSize, int indentCount)
         {
+            var indent = indentSize * indentCount;
             var pad = string.Empty.PadLeft(indent);
             return $@"{pad}(
-{this.select.Print(indent + 4)}
+{this.select.Print(indentSize, indentCount + 1)}
 {pad})";
         }
     }

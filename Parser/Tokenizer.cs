@@ -2,7 +2,7 @@
 
 namespace Parser
 {
-    public partial class Tokenizer : IDisposable
+    public sealed partial class Tokenizer : IDisposable
     {
         private readonly TextReader reader;
 

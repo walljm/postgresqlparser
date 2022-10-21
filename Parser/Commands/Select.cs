@@ -45,10 +45,10 @@
                             {
                                 queue.Dequeue(); // we ignore ALL
                             }
-                            
+
                             if (select.Value == Constants.DistinctKeyword)
                             {
-                                // TODO: Handle clause here
+                                this.distinct = new Distinct(queue);
                             }
 
                             // you need to check for distinct here.
@@ -74,14 +74,13 @@
             }
         }
 
-        public string Print(int indent)
+        public string Print(int indentSize, int indentCount)
         {
+            var indent = indentSize * indentCount;
             var pad = string.Empty.PadLeft(indent);
-            return $@"
-{pad}SELECT
-{this.columns.Print(indent + 4)}
-{pad}FROM
-{this.from.Print(indent + 4)}
+            return $@"{pad}SELECT{this.distinct?.Print(indentSize, indentCount) ?? string.Empty}
+{this.columns.Print(indentSize, indentCount  + 1)}
+{this.from.Print(indentSize, indentCount)}
 ";
         }
     }

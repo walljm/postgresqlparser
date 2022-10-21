@@ -21,5 +21,6 @@
         public const string AsKeyword = "AS";
         public const string AllKeyword = "ALL";
         public const string DistinctKeyword = "DISTINCT";
+        public const string OnKeyword = "ON";
     }
 }

@@ -22,9 +22,12 @@
             throw new ArgumentException("Unknown table");
         }
 
-        public string Print(int indent)
+        public string Print(int indentSize, int indentCount)
         {
-            return this.table.Print(indent);
+            var indent = indentSize * indentCount;
+            var pad = string.Empty.PadLeft(indent);
+            return $@"{pad}{Constants.FromKeyword}
+{this.table.Print(indentSize, indentCount + 1)}";
         }
     }
 }

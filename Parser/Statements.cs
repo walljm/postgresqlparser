@@ -2,12 +2,14 @@
 {
     public abstract class Statement : IItem
     {
-        public static IEnumerable<IItem> Parse(IList<Token> tokens)
+        public static IEnumerable<IItem> Parse(IEnumerable<Token> rawtokens)
         {
+            var tokens = rawtokens.Where(o => o is not WhitespaceToken).ToArray();
+
             var expressions = new List<IItem>();
             // convert tokens into statements.
             //  a statement is a list of tokens that ends with a semicolon ';'
-            for (var i = 0; i < tokens.Count; i++)
+            for (var i = 0; i < tokens.Length; i++)
             {
                 var statementTokens = tokens
                     .Skip(i)
@@ -26,7 +28,7 @@
 
         public static IItem ParseStatement(IList<Token> statementTokens)
         {
-            var queue = new Queue<Token>(statementTokens.Where(o => o is not WhitespaceToken));
+            var queue = new Queue<Token>(statementTokens);
             if (!queue.TryPeek(out var first))
             {
                 throw new ArgumentException("Must have at least 1 token.");
@@ -43,6 +45,6 @@
             };
         }
 
-        public abstract string Print();
+        public abstract string Print(int indentSize, int indentCount);
     }
 }

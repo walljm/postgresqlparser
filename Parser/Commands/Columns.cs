@@ -2,7 +2,7 @@
 {
     public class Columns : IClause
     {
-        private readonly List<IItem> columns = new();
+        private readonly List<IColumn> columns = new();
 
         public Columns(Queue<Token> queue)
         {
@@ -25,10 +25,12 @@
             }
         }
 
-        public string Print(int indent)
+        public string Print(int indentSize, int indentCount)
         {
-            var pad = string.Empty.PadRight(indent) + ",";
-            return $"{pad} {string.Join(Environment.NewLine + pad, columns)}{Environment.NewLine}";
+            var pad = string.Empty.PadRight(indentSize * indentCount);
+            var max = this.columns.Max(o => o.FulNameLength);
+
+            return @$"{pad} {string.Join(Environment.NewLine + pad + ",", columns.Select(o => o.PrintWithPaddedAlias(max)))}";
         }
     }
 }

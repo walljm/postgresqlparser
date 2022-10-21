@@ -1,10 +1,14 @@
 ﻿namespace Parser
 {
-    public class NamedReference : ITable
+    public class NamedReference : ITable, IColumn
     {
-        public string? Name { get; init; }
         public string? Prefix { get; init; }
+        public string? Name { get; init; }
         public string? Alias { get; init; }
+
+        public int FulNameLength => (Prefix?.Length ?? 0) + (Name?.Length ?? 0) + 1;
+
+        public string FullName => (Prefix == null ? string.Empty : Prefix + Constants.NameSeparator) + Name;
 
         public NamedReference(Queue<Token> queue, Token token)
         {
@@ -24,7 +28,7 @@
                 }
             }
             // col (without table signifier)
-            else if (queue.TryPeek(out var comma) && (comma.Value == Constants.CommaSeparator || comma.Value == Constants.AsKeyword))
+            else
             {
                 Name = token.Value;
             }
@@ -32,10 +36,10 @@
             // maybe an alias?
             if (queue.TryPeek(out var aliasMaybe) && aliasMaybe.Value == Constants.AsKeyword)
             {
-                queue.Dequeue(); // remove the AS keyword
+                queue.Dequeue(); // remove the keyword
                 if (queue.TryPeek(out var v) && v is IdentifierToken)
                 {
-                    queue.Dequeue();
+                    queue.Dequeue(); // remove the alias
                     Alias = v.Value;
                 }
                 else
@@ -45,14 +49,25 @@
             }
         }
 
-        public string Print()
+        public string Print(int indentSize, int indentCount)
         {
-            return (Prefix == null ? string.Empty : $"{Prefix}.") + Name + (Alias == null ? string.Empty : $" AS {Alias}");
+            var pad = string.Empty.PadLeft(indentSize * indentCount);
+            return pad + PrintWithPaddedAlias(0);
+        }
+
+        public string PrintWithPaddedAlias(int size)
+        {
+            return (PrintNameAndPrefix().PadRight(size) + (Alias == null ? string.Empty : $" {Constants.AsKeyword} {Alias}")).TrimEnd();
+        }
+
+        public string PrintNameAndPrefix()
+        {
+            return (Prefix == null ? string.Empty : $"{Prefix}.") + Name;
         }
 
         public override string ToString()
         {
-            return Print();
+            return Print(0, 0);
         }
     }
 }
