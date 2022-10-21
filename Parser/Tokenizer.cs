@@ -19,40 +19,51 @@ namespace Parser
 
         public IList<Token> Scan()
         {
-            var tokens = new List<Token>();
+            var tokens = new TokenList();
             while (reader.Peek() != -1)
             {
                 // these must be done in this order...
 
                 if (WhitespaceToken.TryConsume(reader, out var whitespaceToken))
                 {
-                    tokens.Add(whitespaceToken);
+                    tokens.AddIfNotNull(whitespaceToken);
                     continue;
                 }
                 else if (NumericToken.TryConsume(reader, out var numericToken))
                 {
-                    tokens.Add(numericToken);
+                    tokens.AddIfNotNull(numericToken);
                     continue;
                 }
                 else if (OperatorToken.TryConsume(reader, out var operatorToken))
                 {
-                    tokens.Add(operatorToken);
+                    tokens.AddIfNotNull(operatorToken);
                     continue;
                 }
                 else if (IdentifierToken.TryConsume(reader, out var identifierToken))
                 {
-                    tokens.Add(identifierToken);
+                    tokens.AddIfNotNull(identifierToken);
                     continue;
                 }
                 else if (StringLiteralToken.TryConsume(reader, out var stringLiteralToken))
                 {
-                    tokens.Add(stringLiteralToken);
+                    tokens.AddIfNotNull(stringLiteralToken);
                     continue;
                 }
                 throw new Exception("Unknown character in expression: " + reader.Peek());
             }
 
             return tokens;
+        }
+    }
+
+    public class TokenList : List<Token>
+    {
+        public void AddIfNotNull(Token? token)
+        {
+            if (token is not null)
+            {
+                this.Add(token);
+            }
         }
     }
 
@@ -324,7 +335,7 @@ namespace Parser
     //tested
     public record WhitespaceToken(bool HasNewline, bool HasWhitespace, string Value) : Token(Value)
     {
-        public static bool TryConsume(TextReader reader, out WhitespaceToken? value)
+        public static bool TryConsume(TextReader reader, out WhitespaceToken value)
         {
             if (!reader.CanRead() || !char.IsWhiteSpace(reader.PeekChar()))
             {

@@ -60,7 +60,7 @@
             return (PrintNameAndPrefix().PadRight(size) + (Alias == null ? string.Empty : $" {Constants.AsKeyword} {Alias}")).TrimEnd();
         }
 
-        public string PrintNameAndPrefix()
+        protected string PrintNameAndPrefix()
         {
             return (Prefix == null ? string.Empty : $"{Prefix}.") + Name;
         }
