@@ -4,14 +4,36 @@
     {
         public string? Direction { get; init; } = Constants.AscendingKeyword;
 
-        public OrderableNamedReference(Queue<Token> queue, Token token) : base(queue, token)
+        public OrderableNamedReference(string? prefix, string? name, string? direction) : base(prefix, name)
         {
-            // maybe an sort direction?
-            if (queue.TryPeek(out var sortMaybe) && (sortMaybe.Value == Constants.AscendingKeyword || sortMaybe.Value == Constants.DescendingKeyword))
+            this.Direction = direction;
+        }
+
+        public OrderableNamedReference(string? prefix, string? name) : base(prefix, name)
+        {
+        }
+
+        public static bool TryParse(Queue<Token> queue, out OrderableNamedReference? orderableNamedReference)
+        {
+            orderableNamedReference = null;
+
+            if (NamedReference.TryParse(queue, out var namedReference))
             {
-                queue.Dequeue(); // remove the keyword
-                Direction = sortMaybe.Value;
+                // maybe an sort direction?
+                if (queue.TryPeek(out var sortMaybe) && (sortMaybe.Value == Constants.AscendingKeyword || sortMaybe.Value == Constants.DescendingKeyword))
+                {
+                    queue.Dequeue(); // remove the keyword
+                    orderableNamedReference = new OrderableNamedReference(namedReference?.Prefix, namedReference?.Name, sortMaybe.Value);
+                    return true;
+                }
+                else
+                {
+                    orderableNamedReference = new OrderableNamedReference(namedReference?.Prefix, namedReference?.Name);
+                    return true;
+                }
             }
+
+            return false;
         }
 
         public override string Print(int indentSize, int indentCount)

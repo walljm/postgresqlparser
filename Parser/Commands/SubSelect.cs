@@ -2,19 +2,28 @@
 {
     public class SubSelect : ITable
     {
-        private readonly Select select;
+        public Select Select { get; init; }
 
-        public SubSelect(Queue<Token> queue)
+        public SubSelect(Select select)
         {
+            this.Select = select;
+        }
+
+        public static bool TryParse(Queue<Token> queue, out SubSelect? select)
+        {
+            select = null;
+
             if (queue.TryPeek(out var token) && token is OperatorToken && token.Value == Constants.OpenParenthesis)
             {
                 queue.Dequeue();
             }
             else
             {
-                throw new ArgumentException("Missing opening parenthesis!");
+                return false;
             }
-            this.select = new Select(queue);
+
+            select = new SubSelect(new Select(queue));
+
             if (queue.TryPeek(out var close) && close is OperatorToken && close.Value == Constants.ClosingParenthesis)
             {
                 queue.Dequeue();
@@ -23,6 +32,8 @@
             {
                 throw new ArgumentException("Missing closing parenthesis!");
             }
+
+            return true;
         }
 
         public string Print(int indentSize, int indentCount)
@@ -30,7 +41,7 @@
             var indent = indentSize * indentCount;
             var pad = string.Empty.PadLeft(indent);
             return $@"{pad}(
-{this.select.Print(indentSize, indentCount + 1)}
+{this.Select.Print(indentSize, indentCount + 1)}
 {pad})";
         }
     }

@@ -4,22 +4,33 @@
     {
         public string? Alias { get; init; }
 
-        public AliasedNamedReference(Queue<Token> queue, Token token) : base(queue, token)
+        public AliasedNamedReference(string? prefix, string? name, string? alias) : base(prefix, name)
         {
-            // maybe an alias?
-            if (queue.TryPeek(out var aliasMaybe) && aliasMaybe.Value == Constants.AsKeyword)
+            this.Alias = alias;
+        }
+
+        public static bool TryParse(Queue<Token> queue, out AliasedNamedReference? aliasedNamedReference)
+        {
+            aliasedNamedReference = null;
+
+            if (NamedReference.TryParse(queue, out var namedReference))
             {
-                queue.Dequeue(); // remove the keyword
-                if (queue.TryPeek(out var v) && v is IdentifierToken)
+                // maybe an sort direction?
+                if (queue.TryPeek(out var aliasMaybe) && aliasMaybe.Value == Constants.AsKeyword)
                 {
-                    queue.Dequeue(); // remove the alias
-                    this.Alias = v.Value;
+                    queue.Dequeue(); // remove the keyword
+                    var alias = queue.Dequeue(); // remove the value
+                    aliasedNamedReference = new AliasedNamedReference(namedReference?.Prefix, namedReference?.Name, alias.Value);
+                    return true;
                 }
                 else
                 {
-                    throw new InvalidDataException("Missing a valid identifier after an Alias");
+                    aliasedNamedReference = new AliasedNamedReference(namedReference?.Prefix, namedReference?.Name, null);
+                    return true;
                 }
             }
+
+            return false;
         }
 
         public override string Print(int indentSize, int indentCount)

@@ -34,11 +34,12 @@
         public Select(Queue<Token> queue)
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
         {
-            while (queue.TryDequeue(out var token))
+            while (queue.TryPeek(out var token))
             {
                 switch (token.Value)
                 {
                     case Constants.SelectKeyword:
+                        queue.Dequeue(); // drop keyword.
                         if (queue.TryPeek(out var select))
                         {
                             if (select.Value == Constants.AllKeyword)
@@ -46,42 +47,63 @@
                                 queue.Dequeue(); // we ignore ALL, as it is the default an not necessary.
                             }
 
-                            if (select.Value == Constants.DistinctKeyword)
+                            // you need to check for distinct here.
+                            if (Distinct.TryParse(queue, out var distinct))
                             {
-                                this.distinct = new Distinct(queue);
+                                this.distinct = distinct;
                             }
 
-                            // you need to check for distinct here.
-                            this.columns = new Columns(queue);
+                            if (Columns.TryParse(queue, out var columns))
+                            {
+                                this.columns = columns ?? throw new InvalidOperationException("Null from when try parse returned true!");
+                            }
+                            else
+                            {
+                                throw new InvalidOperationException("Missing columns");
+                            }
                         }
                         continue;
                     case Constants.FromKeyword:
-                        this.from = new From(queue);
+                        if (From.TryParse(queue, out var from))
+                        {
+                            this.from = from ?? throw new InvalidOperationException("Null from when try parse returned true!");
+                        }
                         continue;
                     case Constants.WhereKeyword:
+                        if (Where.TryParse(queue, out var where))
+                        {
+                            this.where = where;
+                        }
                         continue;
                     case Constants.GroupKeyword:
-                        if (!queue.TryDequeue(out var bykeyword1) || bykeyword1.Value != Constants.ByKeyword)
+                        if (GroupBy.TryParse(queue, out var groupBy))
                         {
-                            throw new InvalidDataException($"{Constants.GroupKeyword} must be followed by '{Constants.ByKeyword}' keyword.");
+                            this.groupBy = groupBy;
                         }
-
-                        this.groupBy = new GroupBy(queue);
                         continue;
                     case Constants.OrderKeyword:
-                        if (!queue.TryDequeue(out var bykeyword2) || bykeyword2.Value != Constants.ByKeyword)
+                        if (OrderBy.TryParse(queue, out var orderBy))
                         {
-                            throw new InvalidDataException($"{Constants.OrderKeyword} must be followed by '{Constants.ByKeyword}' keyword.");
+                            this.orderBy = orderBy;
                         }
-
-                        this.orderBy = new OrderBy(queue);
-                        continue;
-                    case Constants.LimitKeyword:
-                        continue;
-                    case Constants.HavingKeyword:
                         continue;
                     case Constants.OffsetKeyword:
+                        if (Offset.TryParse(queue, out var offset))
+                        {
+                            this.offset = offset;
+                        }
                         continue;
+                    case Constants.LimitKeyword:
+                        if (Limit.TryParse(queue, out var limit))
+                        {
+                            this.limit = limit;
+                        }
+                        continue;
+                    case Constants.HavingKeyword:
+
+                        continue;
+                    default:
+                        throw new InvalidOperationException("Unknown keyword!");
                 }
             }
         }
@@ -92,7 +114,7 @@
             var pad = string.Empty.PadLeft(indent);
             return $@"{pad}SELECT{this.distinct?.Print(indentSize, indentCount) ?? string.Empty}
 {this.columns.Print(indentSize, indentCount + 1)}
-{this.from.Print(indentSize, indentCount)}{MaybePrintGroupBy(indentSize, indentCount)}{MaybePrintOrderBy(indentSize, indentCount)}
+{this.from.Print(indentSize, indentCount)}{MaybePrintWhere(indentSize, indentCount)}{MaybePrintGroupBy(indentSize, indentCount)}{MaybePrintOrderBy(indentSize, indentCount)}{MaybePrintOffset(indentSize, indentCount)}{MaybePrintLimit(indentSize, indentCount)}
 ";
         }
 
@@ -104,6 +126,20 @@
         private string MaybePrintOrderBy(int indentSize, int indentCount)
         {
             return $"{(this.orderBy != null ? Environment.NewLine : string.Empty)}{this.orderBy?.Print(indentSize, indentCount)}";
+        }
+
+        private string MaybePrintLimit(int indentSize, int indentCount)
+        {
+            return $"{(this.limit != null ? Environment.NewLine : string.Empty)}{this.limit?.Print(indentSize, indentCount)}";
+        }
+        
+        private string MaybePrintOffset(int indentSize, int indentCount)
+        {
+            return $"{(this.limit != null ? Environment.NewLine : string.Empty)}{this.offset?.Print(indentSize, indentCount)}";
+        }
+        private string MaybePrintWhere(int indentSize, int indentCount)
+        {
+            return $"{(this.where != null ? Environment.NewLine : string.Empty)}{this.where?.Print(indentSize, indentCount)}";
         }
     }
 }

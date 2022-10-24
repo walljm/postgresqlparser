@@ -7,28 +7,42 @@
 
         public string FullName => (Prefix == null ? string.Empty : Prefix + Constants.NameSeparator) + Name;
 
-        public NamedReference(Queue<Token> queue, Token token)
+        public NamedReference(string? prefix, string? name)
         {
-            // tbl.col
-            if (queue.TryPeek(out var next) && next.Value == Constants.NameSeparator)
+            this.Prefix = prefix;
+            this.Name = name;
+        }
+
+        public static bool TryParse(Queue<Token> queue, out NamedReference? namedReference)
+        {
+            namedReference = null;
+            if (queue.TryPeek(out var token) && token is IdentifierToken || (token is OperatorToken && token.Value == Constants.AsterixSeparator))
             {
-                queue.Dequeue(); // remove the name separator.
-                if (queue.TryPeek(out var col) && next.Value == Constants.NameSeparator)
+                queue.Dequeue(); // remove the prefix or name
+
+                // tbl.col
+                if (queue.TryPeek(out var next) && next.Value == Constants.NameSeparator)
                 {
-                    queue.Dequeue(); // remove the column
-                    this.Name = col.Value;
-                    this.Prefix = token.Value;
+                    queue.Dequeue(); // remove the name separator.
+                    if (queue.TryPeek(out var col) && next.Value == Constants.NameSeparator)
+                    {
+                        queue.Dequeue(); // remove the column
+                        namedReference = new NamedReference(token.Value, col.Value);
+                    }
+                    else
+                    {
+                        return false;
+                    }
                 }
+                // col (without table signifier)
                 else
                 {
-                    throw new InvalidDataException("Missing a valid column after the table.");
+                    namedReference = new NamedReference(null, token.Value);
                 }
+
+                return true;
             }
-            // col (without table signifier)
-            else
-            {
-                this.Name = token.Value;
-            }
+            return false;
         }
 
         public virtual string Print(int indentSize, int indentCount)
