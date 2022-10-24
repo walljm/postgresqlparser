@@ -22,5 +22,7 @@
         public const string AllKeyword = "ALL";
         public const string DistinctKeyword = "DISTINCT";
         public const string OnKeyword = "ON";
+        public const string AscendingKeyword = "ASC";
+        public const string DescendingKeyword = "DESC";
     }
 }

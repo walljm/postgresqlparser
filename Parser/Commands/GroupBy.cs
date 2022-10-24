@@ -1,14 +1,14 @@
 ﻿namespace Parser
 {
-    public class Columns : IClause
+    public class GroupBy : IClause
     {
-        private readonly List<IPaddedReference> columns = new();
+        private readonly List<INamedReference> columns = new();
 
-        public Columns(Queue<Token> queue)
+        public GroupBy(Queue<Token> queue)
         {
             while (queue.TryDequeue(out var token))
             {
-                if (token is IdentifierToken || (token is OperatorToken && token.Value == Constants.AsterixSeparator))
+                if (token is IdentifierToken)
                 {
                     this.columns.Add(new AliasedNamedReference(queue, token));
 
@@ -28,9 +28,10 @@
         public string Print(int indentSize, int indentCount)
         {
             var pad = string.Empty.PadRight(indentSize * indentCount);
-            var max = this.columns.Max(o => o.FulNameLength);
+            var innerPad = string.Empty.PadRight(indentSize * (indentCount + 1));
 
-            return @$"{pad} {string.Join(Environment.NewLine + pad + ",", columns.Select(o => o.PrintPadded(max)))}";
+            return @$"{pad}{Constants.GroupKeyword} {Constants.ByKeyword}
+{innerPad} {string.Join(Environment.NewLine + innerPad + ",", columns.Select(o => o.Print(indentSize, indentCount)))}";
         }
     }
 }

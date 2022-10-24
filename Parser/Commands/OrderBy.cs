@@ -1,16 +1,16 @@
 ﻿namespace Parser
 {
-    public class Columns : IClause
+    public class OrderBy : IClause
     {
         private readonly List<IPaddedReference> columns = new();
 
-        public Columns(Queue<Token> queue)
+        public OrderBy(Queue<Token> queue)
         {
             while (queue.TryDequeue(out var token))
             {
-                if (token is IdentifierToken || (token is OperatorToken && token.Value == Constants.AsterixSeparator))
+                if (token is IdentifierToken)
                 {
-                    this.columns.Add(new AliasedNamedReference(queue, token));
+                    this.columns.Add(new OrderableNamedReference(queue, token));
 
                     if (queue.TryPeek(out var nextColumn) && nextColumn.Value == Constants.CommaSeparator)
                     {
@@ -28,9 +28,11 @@
         public string Print(int indentSize, int indentCount)
         {
             var pad = string.Empty.PadRight(indentSize * indentCount);
+            var innerPad = string.Empty.PadRight(indentSize * (indentCount + 1));
             var max = this.columns.Max(o => o.FulNameLength);
 
-            return @$"{pad} {string.Join(Environment.NewLine + pad + ",", columns.Select(o => o.PrintPadded(max)))}";
+            return @$"{pad}{Constants.OrderKeyword} {Constants.ByKeyword}
+{innerPad} {string.Join(Environment.NewLine + innerPad + ",", columns.Select(o => o.PrintPadded(max)))}";
         }
     }
 }

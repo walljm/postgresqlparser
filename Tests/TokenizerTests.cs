@@ -6,9 +6,9 @@ namespace Tests
     public class TokenizerTests
     {
         [DataTestMethod()]
-        [DataRow("table", "table", -1)]
+        [DataRow("jwall", "jwall", -1)]
         [DataRow("table1", "table1", -1)]
-        [DataRow("table_name", "table_name", -1)]
+        [DataRow("jason_wall", "jason_wall", -1)]
         [DataRow("_table", "_table", -1)]
         [DataRow("1table", null, (int)'1')]
         public void IdentifierTokenTest1(string text, string expected, int current)

@@ -43,7 +43,7 @@
                         {
                             if (select.Value == Constants.AllKeyword)
                             {
-                                queue.Dequeue(); // we ignore ALL
+                                queue.Dequeue(); // we ignore ALL, as it is the default an not necessary.
                             }
 
                             if (select.Value == Constants.DistinctKeyword)
@@ -61,8 +61,20 @@
                     case Constants.WhereKeyword:
                         continue;
                     case Constants.GroupKeyword:
+                        if (!queue.TryDequeue(out var bykeyword1) || bykeyword1.Value != Constants.ByKeyword)
+                        {
+                            throw new InvalidDataException($"{Constants.GroupKeyword} must be followed by '{Constants.ByKeyword}' keyword.");
+                        }
+
+                        this.groupBy = new GroupBy(queue);
                         continue;
                     case Constants.OrderKeyword:
+                        if (!queue.TryDequeue(out var bykeyword2) || bykeyword2.Value != Constants.ByKeyword)
+                        {
+                            throw new InvalidDataException($"{Constants.OrderKeyword} must be followed by '{Constants.ByKeyword}' keyword.");
+                        }
+
+                        this.orderBy = new OrderBy(queue);
                         continue;
                     case Constants.LimitKeyword:
                         continue;
@@ -79,9 +91,19 @@
             var indent = indentSize * indentCount;
             var pad = string.Empty.PadLeft(indent);
             return $@"{pad}SELECT{this.distinct?.Print(indentSize, indentCount) ?? string.Empty}
-{this.columns.Print(indentSize, indentCount  + 1)}
-{this.from.Print(indentSize, indentCount)}
+{this.columns.Print(indentSize, indentCount + 1)}
+{this.from.Print(indentSize, indentCount)}{MaybePrintGroupBy(indentSize, indentCount)}{MaybePrintOrderBy(indentSize, indentCount)}
 ";
+        }
+
+        private string MaybePrintGroupBy(int indentSize, int indentCount)
+        {
+            return $"{(this.groupBy != null ? Environment.NewLine : string.Empty)}{this.groupBy?.Print(indentSize, indentCount)}";
+        }
+
+        private string MaybePrintOrderBy(int indentSize, int indentCount)
+        {
+            return $"{(this.orderBy != null ? Environment.NewLine : string.Empty)}{this.orderBy?.Print(indentSize, indentCount)}";
         }
     }
 }

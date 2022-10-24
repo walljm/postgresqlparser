@@ -10,7 +10,7 @@
             {
                 if (token is IdentifierToken)
                 {
-                    this.table = new NamedReference(queue, token);
+                    this.table = new AliasedNamedReference(queue, token);
                     return; // exit the loop and finish the constructor.
                 }
                 else if (token is OperatorToken && token.Value == Constants.OpenParenthesis)
