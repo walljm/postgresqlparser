@@ -1,6 +1,6 @@
 ﻿namespace Parser
 {
-    public abstract class Statement : IItem
+    public static class Statement
     {
         public static IEnumerable<IItem> Parse(IEnumerable<Token> rawtokens)
         {
@@ -13,6 +13,7 @@
             {
                 var statementTokens = tokens
                     .Skip(i)
+                    .SkipWhile(o => o is WhitespaceToken)
                     .TakeWhile(o => !(o is OperatorToken && o.Value == Constants.CommandTerminator)).ToList();
 
                 if (statementTokens.Count == 0)
@@ -21,14 +22,14 @@
                 }
 
                 i += statementTokens.Count;
-                expressions.Add(ParseStatement(statementTokens));
+                var queue = new Queue<Token>(statementTokens.Where(o => o is not WhitespaceToken));
+                expressions.Add(ParseStatement(queue));
             }
             return expressions;
         }
 
-        public static IItem ParseStatement(IList<Token> statementTokens)
+        private static IItem ParseStatement(Queue<Token> queue)
         {
-            var queue = new Queue<Token>(statementTokens);
             if (!queue.TryPeek(out var first))
             {
                 throw new ArgumentException("Must have at least 1 token.");
@@ -36,19 +37,17 @@
 
             switch (first)
             {
-                case KeywordToken token:
+                case KeywordToken token when token.Value == Constants.SelectKeyword:
                     {
-                        if (token.Value == Constants.SelectKeyword && Select.TryParse(queue, out var select))
+                        if (Select.TryParse(queue, out var select))
                         {
                             return select ?? throw new InvalidOperationException("Null when true");
                         }
+                        throw new InvalidOperationException("Unable to parse SELECT!");
                     }
-                    break;
             }
 
-            throw new NotSupportedException();
+            throw new NotSupportedException("Unsupported statement!");
         }
-
-        public abstract string Print(int indentSize, int indentCount);
     }
 }
