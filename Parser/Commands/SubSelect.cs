@@ -22,7 +22,10 @@
                 return false;
             }
 
-            select = new SubSelect(new Select(queue));
+            if (Select.TryParse(queue, out var innerSelect))
+            {
+                select = new SubSelect(innerSelect ?? throw new InvalidOperationException("Null found after successful parse"));
+            }
 
             if (queue.TryPeek(out var close) && close is OperatorToken && close.Value == Constants.ClosingParenthesis)
             {

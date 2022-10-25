@@ -34,15 +34,19 @@
                 throw new ArgumentException("Must have at least 1 token.");
             }
 
-            return first switch
+            switch (first)
             {
-                KeywordToken token => token.Value switch
-                {
-                    Constants.SelectKeyword => new Select(queue),
-                    _ => throw new NotSupportedException(),
-                },
-                _ => throw new NotSupportedException(),
-            };
+                case KeywordToken token:
+                    {
+                        if (token.Value == Constants.SelectKeyword && Select.TryParse(queue, out var select))
+                        {
+                            return select ?? throw new InvalidOperationException("Null when true");
+                        }
+                    }
+                    break;
+            }
+
+            throw new NotSupportedException();
         }
 
         public abstract string Print(int indentSize, int indentCount);
