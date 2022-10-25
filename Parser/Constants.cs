@@ -9,6 +9,12 @@
         public const string OpenParenthesis = "(";
         public const string ClosingParenthesis = ")";
 
+        public const string CreateKeyword = "CREATE";
+        public const string GlobalKeyword = "GLOBAL";
+        public const string LocalKeyword = "LOCAL";
+        public const string TempKeyword = "TEMP";
+        public const string TemporaryKeyword = "TEMPORARY";
+
         public const string SelectKeyword = "SELECT";
         public const string FromKeyword = "FROM";
         public const string GroupKeyword = "GROUP";
@@ -25,7 +31,7 @@
 
         public const string AscendingKeyword = "ASC";
         public const string DescendingKeyword = "DESC";
-        
+
         public const string AndKeyword = "AND";
         public const string OrKeyword = "OR";
     }
