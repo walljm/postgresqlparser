@@ -14,9 +14,7 @@ SELECT distinct *, col, tbl.col, col2 as jason, tbl.col3 as wall FROM sch.""tabl
 
 ";
 
-            var reader = new StringReader(test);
-            using var tokenizer = new Tokenizer(reader);
-            var tokens = tokenizer.Scan();
+            var tokens = Tokenizer.Scan(test);
             var statements = Statement.Parse(tokens);
             Assert.AreEqual(@"SELECT DISTINCT
      *
@@ -48,9 +46,7 @@ SELECT distinct on (col1, col2) *, col, tbl.col FROM sch.""table"" as tbl limit 
 
 ";
 
-            var reader = new StringReader(test);
-            using var tokenizer = new Tokenizer(reader);
-            var tokens = tokenizer.Scan();
+            var tokens = Tokenizer.Scan(test);
             var statements = Statement.Parse(tokens);
             Assert.AreEqual(@"SELECT DISTINCT ON (
          col1

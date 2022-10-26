@@ -27,7 +27,7 @@ public class IdentifierTokenTests : TokenizerTests
     [DataTestMethod()]
     [DataRow("\"foo\"", "\"foo\"")]
     [DataRow("\"foasfd!@#$%^(*&_*(&*&^_+'o\"", "\"foasfd!@#$%^(*&_*(&*&^_+'o\"")]
-    public void QuotedItentifierTokenTest(string text, string expected)
+    public void QuotedIdentifierTokenTest(string text, string expected)
     {
         PerformSuccessfulTest<QuotedIdentifier>(text, expected, IdentifierToken.TryConsumeQuoted);
     }
