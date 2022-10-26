@@ -7,21 +7,25 @@ namespace Parser
     {
 
 
-        public static IReadOnlyList<Token> Scan(ReadOnlySpan<char> text)
+        public static IEnumerable<Token> Scan(string? text)
         {
-            var tokens = new List<Token>();
-            while (text.IsEmpty is false)
+            if (string.IsNullOrEmpty(text))
             {
-                if (!Tokenizer.TryConsumeToken(text, out var charsRead, out var token))
+                yield break;
+            }
+            var startIndex = 0;
+            while (startIndex < text.Length)
+            {
+                if (!Tokenizer.TryConsumeToken(text.AsSpan()[startIndex..], out var charsRead, out var token))
                 {
                     throw new Exception($"Unknown character in expression: {text[0]}");
                 }
-
-                tokens.Add(token);
-                text = text[charsRead..];
+                startIndex += charsRead;
+                yield return token;
             }
-            return tokens.AsReadOnly();
         }
+
+
 
         private static bool TryConsumeToken(
             ReadOnlySpan<char> text,
