@@ -91,21 +91,86 @@ namespace Parser
             => TryConsume(text, out var charsRead, out value) && charsRead == text?.Length;
         public static bool TryConsume(ReadOnlySpan<char> text, out int charsRead, [NotNullWhen(true)] out NumericToken? value)
         {
-            (value, charsRead) = (default, default);
-            for (charsRead = 0; charsRead < text.Length; ++charsRead)
+            /*
+            digits
+            digits.[digits][e[+-]digits]
+            [digits].digits[e[+-]digits]
+            digitse[+-]digits
+
+            where digits is one or more decimal digits (0 through 9). At least one digit must be before or after the decimal point,
+            if one is used. At least one digit must follow the exponent marker (e), if one is present. There cannot be any spaces
+            or other characters embedded in the constant. Note that any leading plus or minus sign is not actually considered part
+            of the constant; it is an operator applied to the constant.
+            */
+
+            charsRead = default;
+            value = default;
+
+            var originalText = text;
+            var wholeDigitCount = ReadDigits(ref text);
+            var hasDecimal = TryConsumeChar(ref text, '.');
+            var fractionalDigitCount = ReadDigits(ref text);
+            var hasExponent = false;
+            var hasExponentSign = false;
+            var exponentDigitCount = 0;
+
+            if (wholeDigitCount is 0 && fractionalDigitCount is 0)
             {
-                if (!IsValid(charsRead is 0, text[charsRead]))
+                charsRead = default;
+                value = default;
+                return false;
+            }
+            hasExponent = TryConsumeChar(ref text, 'e');
+            if (hasExponent)
+            {
+                hasExponentSign = HasSign(ref text);
+                exponentDigitCount = ReadDigits(ref text);
+                if (exponentDigitCount is 0)
                 {
-                    break;
+                    return false;
                 }
             }
-            value = charsRead is 0
-                ? null
-                : new NumericToken(new string(text[..charsRead]));
-            return value is not null;
-            static bool IsValid(bool isFirst, char ch)
-                => isFirst ? IsValidStartChar(ch) : IsValidChar(ch);
+
+            charsRead = wholeDigitCount
+                        + BoolToInt(hasDecimal)
+                        + fractionalDigitCount
+                        + BoolToInt(hasExponent)
+                        + BoolToInt(hasExponentSign)
+                        + exponentDigitCount;
+            value = new (new string(originalText[..charsRead]));
+            return true;
+
+            static int BoolToInt(bool value) => value ? 1 : 0;
+            static int GetDigitLength(ReadOnlySpan<char> text)
+            {
+                for (var i = 0; i < text.Length; ++i)
+                {
+                    if (text[i] is not (>= '0' and <= '9'))
+                        return i;
+                }
+                return text.Length;
+            }
+            static bool HasSign(ref ReadOnlySpan<char> text)
+                => TryConsumeChar(ref text, '+')
+                   || TryConsumeChar(ref text, '-');
+
+            static bool TryConsumeChar(ref ReadOnlySpan<char> text, char ch)
+            {
+                if (text.IsEmpty || text[0] != ch)
+                {
+                    return false;
+                }
+                text = text[1..];
+                return true;
+            }
+            static int ReadDigits(ref ReadOnlySpan<char> text)
+            {
+                var digitLength = GetDigitLength(text);
+                text = text[digitLength..];
+                return digitLength;
+            }
         }
+
     }
     //tested
     public record OperatorToken(string Value) : Token(Value)
