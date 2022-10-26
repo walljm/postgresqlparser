@@ -2,11 +2,11 @@
 {
     public partial class Tokenizer
     {
-        public static readonly HashSet<string> InlineKeywords = new(new string[]
+        public static readonly HashSet<string> InlineKeywords = new(new []
         {
           "AS"    
         });
-        public static readonly HashSet<string> Keywords = new(new string[]
+        public static readonly HashSet<string> Keywords = new(new []
         {
             "A",
             "ABORT",
@@ -834,6 +834,6 @@
             "YEAR",
             "YES",
             "ZONE",
-        });
+        }, StringComparer.OrdinalIgnoreCase);
     }
 }

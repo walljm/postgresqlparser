@@ -34,7 +34,7 @@
 
                 if (Columns.TryParse(queue, out var columns))
                 {
-                    distinct = new Distinct(columns ?? throw new InvalidOperationException("Null returned when try parse was true."));
+                    distinct = new Distinct(columns);
                 }
                 else
                 {

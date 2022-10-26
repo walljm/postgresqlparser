@@ -12,39 +12,35 @@
         public static bool TryParse(Queue<Token> queue, out From? table)
         {
             table = null;
-            if (queue.TryPeek(out var test) && test is KeywordToken && test.Value == Constants.FromKeyword)
+            if (!queue.TryPeek(out var test) || test is not KeywordToken { Value: Constants.FromKeyword })
             {
-                queue.Dequeue();
-
-                if (queue.TryPeek(out var identToken) && identToken is IdentifierToken)
+                return false;
+            }
+            queue.Dequeue();
+            if (queue.TryPeek(out var identToken) && identToken is IdentifierToken)
+            {
+                if (AliasedNamedReference.TryParse(queue, out var aliasedNamedReference))
                 {
-                    if (AliasedNamedReference.TryParse(queue, out var aliasedNamedReference))
-                    {
-                        table = new From(aliasedNamedReference ?? throw new InvalidOperationException("Null returned when try parse was true."));
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException("Expected a table reference");
-                    }
-
-                    return true; // exit the loop and finish the constructor.
+                    table = new From(aliasedNamedReference);
                 }
-                else if (queue.TryPeek(out var parenToken) && parenToken is OperatorToken && parenToken.Value == Constants.OpenParenthesis)
+                else
                 {
-                    if (SubSelect.TryParse(queue, out var subSelect))
-                    {
-                        table = new From(subSelect ?? throw new InvalidOperationException("Null returned when try parse was true."));
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException("Expected a table reference");
-                    }
-
-                    return true;
+                    throw new InvalidOperationException("Expected a table reference");
                 }
+                return true; // exit the loop and finish the constructor.
             }
 
-            return false;
+            if (!queue.TryPeek(out var parenToken) || parenToken is not OperatorToken { Value: Constants.OpenParenthesis })
+            {
+                return false;
+            }
+            if (!SubSelect.TryParse(queue, out var subSelect) || subSelect is null)
+            {
+                throw new InvalidOperationException("Expected a table reference");
+            }
+            table = new From(subSelect);
+            return true;
+
         }
 
         public string Print(int indentSize, int indentCount)

@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class OrderableNamedReference : NamedReference, IPaddedReference
     {
@@ -13,7 +15,7 @@
         {
         }
 
-        public static bool TryParse(Queue<Token> queue, out OrderableNamedReference? orderableNamedReference)
+        public static bool TryParse(Queue<Token> queue, [NotNullWhen(true)] out OrderableNamedReference? orderableNamedReference)
         {
             orderableNamedReference = null;
 

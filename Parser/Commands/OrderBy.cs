@@ -29,7 +29,7 @@
                 {
                     if (OrderableNamedReference.TryParse(queue, out var orderableNamedReference))
                     {
-                        columns.Add(orderableNamedReference ?? throw new InvalidOperationException("Null returned when try parse was true."));
+                        columns.Add(orderableNamedReference);
                     }
                     else
                     {
@@ -39,7 +39,6 @@
                     if (queue.TryPeek(out var nextColumn) && nextColumn.Value == Constants.CommaSeparator)
                     {
                         queue.Dequeue(); // remove the next item indicator so you're ready to check the next thing.
-                        continue; // you have more columns to process
                     }
                     else
                     {

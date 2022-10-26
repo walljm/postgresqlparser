@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class Conditional : IItem
     {
@@ -20,25 +22,18 @@
             this.Left = left;
         }
 
-        public static bool TryParse(Queue<Token> queue, out Conditional? conditional)
+        public static bool TryParse(Queue<Token> queue, [NotNullWhen(true)] out Conditional? conditional)
         {
             conditional = null;
 
 
             if (queue.TryPeek(out var token) && token is IdentifierToken)
             {
-                NamedReference left;
                 string op;
-                NamedReference right;
-                if (NamedReference.TryParse(queue, out var leftNamedReference))
-                {
-                    left = leftNamedReference ?? throw new InvalidOperationException("Null returned when try parse was true.");
-                }
-                else
+                if (!NamedReference.TryParse(queue, out var left))
                 {
                     throw new InvalidOperationException("Expected a column reference");
                 }
-
                 if (queue.TryPeek(out var opToken) && opToken is OperatorToken)
                 {
                     queue.Dequeue();
@@ -51,11 +46,7 @@
                     return true;
                 }
 
-                if (NamedReference.TryParse(queue, out var rightNamedReference))
-                {
-                    right = rightNamedReference ?? throw new InvalidOperationException("Null returned when try parse was true.");
-                }
-                else
+                if (!NamedReference.TryParse(queue, out var right))
                 {
                     throw new InvalidOperationException("Expected a column reference");
                 }

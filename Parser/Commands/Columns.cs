@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class Columns : IClause
     {
@@ -9,14 +11,14 @@
             this.ColumnList = columns;
         }
 
-        public static bool TryParse(Queue<Token> queue, out Columns? columns)
+        public static bool TryParse(Queue<Token> queue, [NotNullWhen(true)] out Columns? columns)
         {
             var cols = new List<IPaddedReference>();
             while (queue.TryPeek(out var token) && token is IdentifierToken || (token is OperatorToken && token.Value == Constants.AsterixSeparator))
             {
                 if (AliasedNamedReference.TryParse(queue, out var aliasedNamedReference))
                 {
-                    cols.Add(aliasedNamedReference ?? throw new InvalidOperationException("Null returned when try parse was true."));
+                    cols.Add(aliasedNamedReference);
                 }
                 else
                 {
@@ -28,11 +30,8 @@
                     queue.Dequeue(); // remove the next item indicator so you're ready to check the next thing.
                     continue; // you have more columns to process
                 }
-                else
-                {
-                    columns = new Columns(cols);
-                    return true; // exit the loop
-                }
+                columns = new Columns(cols);
+                return true; // exit the loop
             }
 
             columns = null;
