@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class From : IClause
     {
@@ -9,6 +11,11 @@
             this.Table = table;
         }
 
+
+        public static bool TryParse(ref Tokenizer tokenizer, [NotNullWhen(true)] out From? from)
+        {
+            throw new NotImplementedException();
+        }
         public static bool TryParse(Queue<Token> queue, out From? table)
         {
             table = null;

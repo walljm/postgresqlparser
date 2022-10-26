@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class OrderBy : IClause
     {
@@ -9,6 +11,11 @@
             this.Columns = columns;
         }
 
+
+        public static bool TryParse(ref Tokenizer tokenizer, [NotNullWhen(true)] out OrderBy? orderBy)
+        {
+            throw new NotImplementedException();
+        }
         public static bool TryParse(Queue<Token> queue, out OrderBy? orderBy)
         {
             orderBy = null;

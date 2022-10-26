@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class Distinct : IClause
     {
@@ -13,6 +15,10 @@
         {
         }
 
+        public static bool TryParse(ref Tokenizer tokenizer, [NotNullWhen(true)] out Distinct? distinct)
+        {
+            throw new NotImplementedException();
+        }
         public static bool TryParse(Queue<Token> queue, out Distinct? distinct)
         {
             distinct = null;
@@ -70,5 +76,6 @@
 {OnColumns.Print(indentSize, indentCount + 2)}
 {pad}{Constants.ClosingParenthesis}";
         }
+
     }
 }

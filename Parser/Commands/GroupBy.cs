@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class GroupBy : IClause
     {
@@ -9,6 +11,11 @@
             this.Columns = columns;
         }
 
+
+        public static bool TryParse(ref Tokenizer tokenizer, [NotNullWhen(true)] out GroupBy? groupBy)
+        {
+            throw new NotImplementedException();
+        }
         public static bool TryParse(Queue<Token> queue, out GroupBy? orderBy)
         {
             orderBy = null;

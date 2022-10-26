@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public static class Statement
     {
@@ -9,9 +11,8 @@
             foreach (var statementRange in GetStatementSegments(tokens))
             {
                 var statementSegment = segment[statementRange];
-                yield return ParseStatement(new (statementSegment));
+                yield return ParseStatement(new Queue<Token>(statementSegment));
             }
-
             static IEnumerable<Range> GetStatementSegments(IReadOnlyList<Token> tokens)
             {
                 var startIndex = 0;
@@ -23,7 +24,6 @@
                         {
                             continue;
                         }
-
                         yield return new(startIndex, endIndex);
                         startIndex = endIndex + 1;
                         break;
@@ -32,6 +32,25 @@
             }
         }
 
+        private static bool TryParseStatement(ref Tokenizer tokenizer, [NotNullWhen(true)] out IItem? result)
+        {
+            result = default;
+            return tokenizer.PeekToken() switch
+            {
+                KeywordToken { Value: Constants.SelectKeyword }
+                    => Select.TryParse(ref tokenizer, out var r) && Out(r, out result),
+                KeywordToken { Value: var keywordValue }
+                    => throw new NotSupportedException($"Unsupported keyword {keywordValue}"),
+                _ => false,
+            };
+
+            static bool Out<TIn, TOut>(TIn? input, [NotNullWhen(true)] out TOut? output)
+                where TIn : TOut
+            {
+                output = input;
+                return output is not null;
+            }
+        }
 
         private static IItem ParseStatement(Queue<Token> queue)
         {

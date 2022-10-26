@@ -1,10 +1,29 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace Parser
 {
-    public static partial class Tokenizer
+    public static class TokenizerExtensions
     {
+        // ReSharper disable once RedundantAssignment
+        public static bool BacktrackTo(ref this Tokenizer tokenizer, Tokenizer backtrack)
+        {
+            Debug.Assert(backtrack.Length <= tokenizer.Length, $"{nameof(BacktrackTo)} should not be used to advance");
+            tokenizer = backtrack;
+            return false;
+        }
+    }
+
+    public ref partial struct Tokenizer
+    {
+        private ReadOnlySpan<char> span;
+        public Tokenizer(ReadOnlySpan<char> span) => this.span = span;
+
+        public bool IsEmpty => this.span.IsEmpty;
+        public int Length => this.span.Length;
+        public ReadOnlySpan<char> Remaining => this.span;
+
         public static IEnumerable<Token> Scan(string? text)
         {
             if (string.IsNullOrEmpty(text))
@@ -22,6 +41,115 @@ namespace Parser
                 yield return token;
             }
         }
+
+        public Token? PeekToken()
+        {
+            var copy = this;
+            return copy.ReadToken();
+        }
+
+        public bool TryPeekToken([NotNullWhen(true)] out Token? token)
+        {
+            token = this.PeekToken();
+            return token is not null;
+        }
+
+        public bool TryReadToken([NotNullWhen(true)] out Token? token)
+        {
+            token = this.ReadToken();
+            return token is not null;
+        }
+
+        public WhitespaceToken? ReadWhiteSpaceToken() => this.TryReadWhiteSpaceToken(out var token) ? token : default;
+        public bool TryReadWhiteSpaceToken([NotNullWhen(true)] out WhitespaceToken? token)
+        {
+            if (!WhitespaceToken.TryConsume(this.span, out var charsRead, out token))
+            {
+                return false;
+            }
+            this.span = this.span[charsRead..];
+            return true;
+        }
+
+        public NumericToken? ReadNumericToken() => this.TryReadNumericToken(out var token) ? token : default;
+        public bool TryReadNumericToken([NotNullWhen(true)] out NumericToken? token)
+        {
+            if (!NumericToken.TryConsume(this.span, out var charsRead, out token))
+            {
+                return false;
+            }
+
+            this.span = this.span[charsRead..];
+            return true;
+        }
+
+        public OperatorToken? ReadOperatorToken() => this.TryReadOperatorToken(out var token) ? token : default;
+        public bool TryReadOperatorToken([NotNullWhen(true)] out OperatorToken? token)
+        {
+            if (!OperatorToken.TryConsume(this.span, out var charsRead, out token))
+            {
+                return false;
+            }
+
+            this.span = this.span[charsRead..];
+            return true;
+        }
+
+        public bool TryReadKeyword(string expectedKeyword)
+        {
+            var copy = this;
+            if (
+                copy.ReadToken() is not KeywordToken { Value: var keywordValue }
+                || !keywordValue.Equals(expectedKeyword, StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                return false;
+            }
+            this = copy;
+            return true;
+        }
+
+        public IdentifierToken? ReadIdentifierToken() => this.TryReadIdentifierToken(out var token) ? token : default;
+        public bool TryReadIdentifierToken([NotNullWhen(true)] out IdentifierToken? token)
+        {
+            if (!IdentifierToken.TryConsume(this.span, out var charsRead, out token))
+            {
+                return false;
+            }
+
+            this.span = this.span[charsRead..];
+            return true;
+        }
+
+        public QuotedIdentifier? ReadQuotedIdentifierToken() => this.TryReadQuotedIdentifierToken(out var token) ? token : default;
+        public bool TryReadQuotedIdentifierToken([NotNullWhen(true)] out QuotedIdentifier? token)
+        {
+            if (!IdentifierToken.TryConsumeQuoted(this.span, out var charsRead, out token))
+            {
+                return false;
+            }
+
+            this.span = this.span[charsRead..];
+            return true;
+        }
+
+        public StringLiteralToken? ReadStringToken() => this.TryReadStringToken(out var token) ? token : default;
+        public bool TryReadStringToken([NotNullWhen(true)] out StringLiteralToken? token)
+        {
+            if (!StringLiteralToken.TryConsume(this.span, out var charsRead, out token))
+            {
+                return false;
+            }
+            this.span = this.span[charsRead..];
+            return true;
+        }
+
+        public Token? ReadToken()
+            => (Token?)this.ReadWhiteSpaceToken()
+               ?? (Token?)this.ReadNumericToken()
+               ?? (Token?)this.ReadOperatorToken()
+               ?? (Token?)this.ReadIdentifierToken()
+               ?? this.ReadStringToken();
 
         private static bool TryConsumeToken(
             ReadOnlySpan<char> text,
@@ -42,15 +170,14 @@ namespace Parser
 
         private static Token? ConsumeNumeric(ReadOnlySpan<char> text, out int charsRead)
             => NumericToken.TryConsume(text, out charsRead, out var token) ? token : default;
-
         private static Token? ConsumeOperator(ReadOnlySpan<char> text, out int charsRead)
             => OperatorToken.TryConsume(text, out charsRead, out var token) ? token : default;
-
         private static Token? ConsumeIdentifier(ReadOnlySpan<char> text, out int charsRead)
             => IdentifierToken.TryConsume(text, out charsRead, out var token) ? token : default;
-
         private static Token? ConsumeString(ReadOnlySpan<char> text, out int charsRead)
             => StringLiteralToken.TryConsume(text, out charsRead, out var token) ? token : default;
+
+
     }
 
     public abstract record Token(string Value);
@@ -88,6 +215,7 @@ namespace Parser
         5e2
         1.925e-3
         */
+
 
         public static bool TryConsume(string? text, [NotNullWhen(true)] out NumericToken? value)
             => TryConsume(text, out var charsRead, out value) && charsRead == text?.Length;
@@ -139,7 +267,7 @@ namespace Parser
                         + BoolToInt(hasExponent)
                         + BoolToInt(hasExponentSign)
                         + exponentDigitCount;
-            value = new(new string(originalText[..charsRead]));
+            value = new (new string(originalText[..charsRead]));
             return true;
 
             static int BoolToInt(bool value) => value ? 1 : 0;
@@ -172,6 +300,7 @@ namespace Parser
                 return digitLength;
             }
         }
+
     }
     //tested
     public record OperatorToken(string Value) : Token(Value)
@@ -234,7 +363,7 @@ namespace Parser
 
         public static bool TryConsume(string? text, [NotNullWhen(true)] out OperatorToken? value)
             => TryConsume(text, out var charsRead, out value) && charsRead == text?.Length;
-        public static bool TryConsume(ReadOnlySpan<char> text, out int charsRead, out OperatorToken? value)
+        public static bool TryConsume(ReadOnlySpan<char> text, out int charsRead, [NotNullWhen(true)] out OperatorToken? value)
         {
             (value, charsRead) = (default, default);
             for (charsRead = 0; charsRead < text.Length; ++charsRead)
@@ -288,6 +417,8 @@ namespace Parser
 
         public static bool TryConsume(string? text, [NotNullWhen(true)] out IdentifierToken? value)
             => TryConsume(text, out var charsRead, out value) && charsRead == text?.Length;
+
+
         public static bool TryConsume(ReadOnlySpan<char> text, out int charsRead, [NotNullWhen(true)] out IdentifierToken? value)
         {
             value = default;
@@ -336,6 +467,7 @@ namespace Parser
             }
         }
 
+
         // TODO: someday, lets support the U&"" unicode variation.
         // TODO: should we allow escaped quotes in this?
         public static bool TryConsumeQuoted(TextReader reader, [NotNullWhen(true)] out QuotedIdentifier? value)
@@ -362,7 +494,7 @@ namespace Parser
                 return false;
             }
             charsRead = insideLength + 2; // Include 2 for the quotes
-            value = new(text[..charsRead].ToString());
+            value = new (text[..charsRead].ToString());
             return true;
         }
     };
@@ -391,7 +523,7 @@ namespace Parser
             {
                 // If there's only one part, just return that.
                 charsRead = firstPart.Length;
-                value = new(new string(firstPart));
+                value = new (new string(firstPart));
                 return true;
             }
             // according to postgres spec, we ignore two ticks with a new line between them.
@@ -416,7 +548,7 @@ namespace Parser
                 var charsReadCopy = charsRead;
                 if (!StartsWithNewLine(ref textCopy, ref charsReadCopy))
                     return false;
-                if (!GetStringPart(ref textCopy, ref charsReadCopy, out outerStringPart))
+                if(!GetStringPart(ref textCopy, ref charsReadCopy, out outerStringPart))
                     return false;
                 text = textCopy;
                 charsRead = charsReadCopy;
@@ -471,7 +603,6 @@ namespace Parser
                     {
                         case Delimiter:
                             return i;
-
                         case '\\' when i < text.Length - 1 && text[i + 1] == Delimiter:
                             ++i; // Skip the quote char
                             break;
@@ -480,6 +611,7 @@ namespace Parser
                 return text.Length;
             }
         }
+
     };
     //tested
     public record WhitespaceToken(string Value) : Token(Value)
