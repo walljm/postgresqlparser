@@ -1,14 +1,39 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class Offset : IClause
     {
-        public string? Size { get; init; }
+        public static Offset Zero { get; } = new Offset();
+        public string? Size { get; }
 
-        public Offset(string? size)
+        public Offset(string size)
         {
+            ArgumentNullException.ThrowIfNull(size);
             this.Size = size;
         }
 
+        private Offset()
+        {
+        }
+
+        public static bool TryParse(ref Tokenizer tokenizer, [NotNullWhen(true)] out Offset? offset)
+        {
+            offset = default;
+            if (!tokenizer.TryReadKeyword(Constants.OffsetKeyword))
+                return false;
+            (bool consumeToken, offset) = tokenizer.PeekToken() switch
+            {
+                NumericToken n => (true, new Offset(n.Value)),
+                KeywordToken { Value: Constants.NullKeyword } => (true, Zero),
+                _ => (false, Zero),
+            };
+            if (consumeToken)
+            {
+                tokenizer.ReadToken();
+            }
+            return true;
+        }
         public static bool TryParse(Queue<Token> queue, out Offset? offset)
         {
             offset = null;
@@ -32,8 +57,7 @@
         public string Print(int indentSize, int indentCount)
         {
             var pad = string.Empty.PadRight(indentSize * indentCount);
-
-            return @$"{pad}{Constants.OffsetKeyword} {Size}";
+            return Size is null ? string.Empty : @$"{pad}{Constants.OffsetKeyword} {Size}";
         }
     }
 }

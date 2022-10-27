@@ -11,6 +11,10 @@ namespace Parser
             this.ColumnList = columns;
         }
 
+        public static bool TryParse(ref Tokenizer tokenizer, [NotNullWhen(true)] out Columns? columns)
+        {
+            throw new NotImplementedException();
+        }
         public static bool TryParse(Queue<Token> queue, [NotNullWhen(true)] out Columns? columns)
         {
             var cols = new List<IPaddedReference>();
@@ -45,5 +49,6 @@ namespace Parser
 
             return @$"{pad} {string.Join(Environment.NewLine + pad + ",", ColumnList.Select(o => o.PrintPadded(max)))}";
         }
+
     }
 }

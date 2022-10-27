@@ -34,5 +34,6 @@
 
         public const string AndKeyword = "AND";
         public const string OrKeyword = "OR";
+        public const string NullKeyword = "NULL";
     }
 }

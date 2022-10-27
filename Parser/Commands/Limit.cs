@@ -1,14 +1,39 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class Limit : IClause
     {
+        public static Limit All { get; } = new Limit();
         public string? Size { get; init; }
 
-        public Limit(string? size)
+        public Limit(string size)
         {
+            ArgumentNullException.ThrowIfNull(size);
             Size = size;
         }
 
+        private Limit()
+        {
+        }
+
+        public static bool TryParse(ref Tokenizer tokenizer, [NotNullWhen(true)] out Limit? limit)
+        {
+            limit = default;
+            if (!tokenizer.TryReadKeyword(Constants.LimitKeyword))
+                return false;
+            (bool consumeToken, limit) = tokenizer.PeekToken() switch
+            {
+                NumericToken n => (true, new Limit(n.Value)),
+                KeywordToken { Value: Constants.NullKeyword or Constants.AllKeyword } => (true, All),
+                _ => (false, Limit.All),
+            };
+            if (consumeToken)
+            {
+                tokenizer.ReadToken();
+            }
+            return true;
+        }
         public static bool TryParse(Queue<Token> queue, out Limit? limit)
         {
             limit = null;
@@ -31,9 +56,7 @@
         public string Print(int indentSize, int indentCount)
         {
             var pad = string.Empty.PadRight(indentSize * indentCount);
-
-            return @$"{pad}{Constants.LimitKeyword} {Size}";
+            return this.Size is null ? string.Empty : @$"{pad}{Constants.LimitKeyword} {Size}";
         }
-
     }
 }

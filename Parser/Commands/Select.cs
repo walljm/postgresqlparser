@@ -19,11 +19,8 @@ namespace Parser
         public Where? Where { get; init; }
         public GroupBy? GroupBy { get; init; }
         public OrderBy? OrderBy { get; init; }
-        public Limit? Limit { get; init; }
-        public Offset? Offset { get; init; }
-
-        // [ HAVING condition ]
-        public IClause? having;
+        public Limit Limit { get; init; } = Limit.All;
+        public Offset Offset { get; init; } = Offset.Zero;
 
         public Select(Columns cols, From from)
         {
@@ -31,17 +28,97 @@ namespace Parser
             From = from;
         }
 
+        public static bool TryParse(ref Tokenizer tokenizer, [NotNullWhen(true)] out Select? select)
+        {
+            var backtrack = tokenizer;
+            select = default;
+            Distinct? distinct = null;
+            From? from = null;
+            Where? where = null;
+            GroupBy? groupBy = null;
+            OrderBy? orderBy = null;
+            Limit? limit = null;
+            Offset? offset = null;
+            if (!tokenizer.TryReadKeyword(Constants.SelectKeyword))
+                return false;
+            if (
+                tokenizer.TryPeekToken(out var token)
+                && token is KeywordToken { Value: var kwVal }
+            )
+            {
+                switch (kwVal)
+                {
+                    case Constants.AllKeyword:
+                        tokenizer.ReadToken();
+                        break;
+                    case Constants.DistinctKeyword when Distinct.TryParse(ref tokenizer, out distinct):
+                        break;
+                    case Constants.DistinctKeyword:
+                        return tokenizer.BacktrackTo(backtrack);
+                }
+            }
+
+            if (!Columns.TryParse(ref tokenizer, out var columns))
+            {
+                return tokenizer.BacktrackTo(backtrack);
+            }
+
+            while (tokenizer.TryPeekToken(out token) && token is KeywordToken { Value: var keywordValue })
+            {
+                var isValid = keywordValue switch
+                {
+                    Constants.FromKeyword when from is not null => false,
+                    Constants.FromKeyword => From.TryParse(ref tokenizer, out from),
+                    Constants.WhereKeyword when where is not null => false,
+                    Constants.WhereKeyword => Where.TryParse(ref tokenizer, out where),
+                    Constants.GroupKeyword when groupBy is not null => false,
+                    Constants.GroupKeyword => GroupBy.TryParse(ref tokenizer, out groupBy),
+                    Constants.OrderKeyword when orderBy is not null => false,
+                    Constants.OrderKeyword => OrderBy.TryParse(ref tokenizer, out orderBy),
+                    Constants.OffsetKeyword when offset is not null => false,
+                    Constants.OffsetKeyword => Offset.TryParse(ref tokenizer, out offset),
+                    Constants.LimitKeyword when limit is not null => false,
+                    Constants.LimitKeyword => Limit.TryParse(ref tokenizer, out limit),
+                    Constants.HavingKeyword => throw new NotImplementedException(),
+                    _ => false, // Unknown keyword was provided
+                };
+                if (isValid is false)
+                {
+                    return tokenizer.BacktrackTo(backtrack);
+                }
+            }
+            if (from is null)
+            {
+                // columns and from are required
+                return tokenizer.BacktrackTo(backtrack);
+            }
+
+            select = new Select(
+                columns,
+                from
+            )
+            {
+                Distinct = distinct,
+                Where = where,
+                GroupBy = groupBy,
+                OrderBy = orderBy,
+                Limit = limit ?? Limit.All,
+                Offset = offset ?? Offset.Zero,
+            };
+            return true;
+
+        }
         public static bool TryParse(Queue<Token> queue, [NotNullWhen(true)] out Select? select)
         {
             select = null;
-            Distinct? Distinct = null;
-            Columns? Columns = null;
-            From? From = null;
-            Where? Where = null;
-            GroupBy? GroupBy = null;
-            OrderBy? OrderBy = null;
-            Limit? Limit = null;
-            Offset? Offset = null;
+            Distinct? distinct = null;
+            Columns? columns = null;
+            From? from = null;
+            Where? where = null;
+            GroupBy? groupBy = null;
+            OrderBy? orderBy = null;
+            Limit? limit = null;
+            Offset? offset = null;
 
             while (queue.TryPeek(out var token))
             {
@@ -57,56 +134,31 @@ namespace Parser
                             }
 
                             // you need to check for distinct here.
-                            if (Distinct.TryParse(queue, out var distinct))
-                            {
-                                Distinct = distinct;
-                            }
+                            _ = Distinct.TryParse(queue, out distinct);
 
-                            if (Columns.TryParse(queue, out var columns))
-                            {
-                                Columns = columns ?? throw new InvalidOperationException("Null from when try parse returned true!");
-                            }
-                            else
+                            if (!Columns.TryParse(queue, out columns))
                             {
                                 throw new InvalidOperationException("Missing columns");
                             }
                         }
                         continue;
                     case Constants.FromKeyword:
-                        if (From.TryParse(queue, out var from))
-                        {
-                            From = from ?? throw new InvalidOperationException("Null from when try parse returned true!");
-                        }
+                        _ = From.TryParse(queue, out from);
                         continue;
                     case Constants.WhereKeyword:
-                        if (Where.TryParse(queue, out var where))
-                        {
-                            Where = where;
-                        }
+                        _ = Where.TryParse(queue, out where);
                         continue;
                     case Constants.GroupKeyword:
-                        if (GroupBy.TryParse(queue, out var groupBy))
-                        {
-                            GroupBy = groupBy;
-                        }
+                        _ = GroupBy.TryParse(queue, out groupBy);
                         continue;
                     case Constants.OrderKeyword:
-                        if (OrderBy.TryParse(queue, out var orderBy))
-                        {
-                            OrderBy = orderBy;
-                        }
+                        _ = OrderBy.TryParse(queue, out orderBy);
                         continue;
                     case Constants.OffsetKeyword:
-                        if (Offset.TryParse(queue, out var offset))
-                        {
-                            Offset = offset;
-                        }
+                        _ = Offset.TryParse(queue, out offset);
                         continue;
                     case Constants.LimitKeyword:
-                        if (Limit.TryParse(queue, out var limit))
-                        {
-                            Limit = limit;
-                        }
+                        _ = Limit.TryParse(queue, out limit);
                         continue;
                     case Constants.HavingKeyword:
 
@@ -116,26 +168,26 @@ namespace Parser
                         throw new InvalidOperationException("Failed to process token! Infinite loop detected.");
                 }
             }
-            if (Columns == null)
+            if (columns == null)
             {
                 throw new InvalidOperationException("You must have columns in a Select statement!");
             }
-            if (From == null)
+            if (from == null)
             {
                 throw new InvalidOperationException("You must have a FROM clause in a SELECT statement!");
             }
 
             select = new Select(
-                Columns,
-                From
+                columns,
+                from
                 )
             {
-                Distinct = Distinct,
-                Where = Where,
-                GroupBy = GroupBy,
-                OrderBy = OrderBy,
-                Limit = Limit,
-                Offset = Offset,
+                Distinct = distinct,
+                Where = where,
+                GroupBy = groupBy,
+                OrderBy = orderBy,
+                Limit = limit ?? Limit.All,
+                Offset = offset ?? Offset.Zero,
             };
             return true;
         }
@@ -162,17 +214,18 @@ namespace Parser
 
         private string MaybePrintLimit(int indentSize, int indentCount)
         {
-            return $"{(this.Limit != null ? Environment.NewLine : string.Empty)}{this.Limit?.Print(indentSize, indentCount)}";
+            return $"{(this.Limit != Limit.All ? Environment.NewLine : string.Empty)}{this.Limit.Print(indentSize, indentCount)}";
         }
 
         private string MaybePrintOffset(int indentSize, int indentCount)
         {
-            return $"{(this.Limit != null ? Environment.NewLine : string.Empty)}{this.Offset?.Print(indentSize, indentCount)}";
+            return $"{(this.Offset != Offset.Zero ? Environment.NewLine : string.Empty)}{this.Offset.Print(indentSize, indentCount)}";
         }
 
         private string MaybePrintWhere(int indentSize, int indentCount)
         {
             return $"{(this.Where != null ? Environment.NewLine : string.Empty)}{this.Where?.Print(indentSize, indentCount)}";
         }
+
     }
 }

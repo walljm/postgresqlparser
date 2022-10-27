@@ -1,6 +1,6 @@
 ﻿namespace Parser
 {
-    public partial class Tokenizer
+    public ref partial struct Tokenizer
     {
         public static readonly HashSet<string> InlineKeywords = new(new []
         {

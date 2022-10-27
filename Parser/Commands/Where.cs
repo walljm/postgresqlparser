@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class Where : IClause
     {
@@ -9,6 +11,11 @@
             this.Conditions = conditions;
         }
 
+
+        public static bool TryParse(ref Tokenizer tokenizer, [NotNullWhen(true)] out Where? where)
+        {
+            throw new NotImplementedException();
+        }
         public static bool TryParse(Queue<Token> queue, out Where? where)
         {
             where = null;
