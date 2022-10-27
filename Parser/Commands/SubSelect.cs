@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class SubSelect : ITable
     {
@@ -9,6 +11,7 @@
             this.Select = select;
         }
 
+        // TODO: Because of the ambiguity noted w/ Select.TryParse, I did not put [NotNullWhen(true)] on the SubSelect attribute
         public static bool TryParse(Queue<Token> queue, out SubSelect? select)
         {
             select = null;
@@ -24,7 +27,9 @@
 
             if (Select.TryParse(queue, out var innerSelect))
             {
-                select = new SubSelect(innerSelect ?? throw new InvalidOperationException("Null found after successful parse"));
+                // TODO: What do we do if Select.TryParse fails?  We can't backtrack the token queue.
+                // Throwing an exception isn't really appropriate in a 'Try' method.
+                select = new SubSelect(innerSelect);
             }
 
             if (queue.TryPeek(out var close) && close is OperatorToken && close.Value == Constants.ClosingParenthesis)

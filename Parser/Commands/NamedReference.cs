@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class NamedReference : INamedReference
     {
@@ -13,7 +15,7 @@
             this.Name = name;
         }
 
-        public static bool TryParse(Queue<Token> queue, out NamedReference? namedReference)
+        public static bool TryParse(Queue<Token> queue, [NotNullWhen(true)] out NamedReference? namedReference)
         {
             namedReference = null;
             if (queue.TryPeek(out var token) && token is IdentifierToken || (token is OperatorToken && token.Value == Constants.AsterixSeparator))

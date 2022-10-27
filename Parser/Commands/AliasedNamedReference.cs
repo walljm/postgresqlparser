@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class AliasedNamedReference : NamedReference, ITable, IPaddedReference
     {
@@ -9,7 +11,7 @@
             this.Alias = alias;
         }
 
-        public static bool TryParse(Queue<Token> queue, out AliasedNamedReference? aliasedNamedReference)
+        public static bool TryParse(Queue<Token> queue, [NotNullWhen(true)] out AliasedNamedReference? aliasedNamedReference)
         {
             aliasedNamedReference = null;
 

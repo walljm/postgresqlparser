@@ -5,28 +5,33 @@
         public static IEnumerable<IItem> Parse(IEnumerable<Token> rawtokens)
         {
             var tokens = rawtokens.Where(o => o is not WhitespaceToken).ToArray();
-
-            var expressions = new List<IItem>();
-            // convert tokens into statements.
-            //  a statement is a list of tokens that ends with a semicolon ';'
-            for (var i = 0; i < tokens.Length; i++)
+            var segment = new ArraySegment<Token>(tokens);
+            foreach (var statementRange in GetStatementSegments(tokens))
             {
-                var statementTokens = tokens
-                    .Skip(i)
-                    .SkipWhile(o => o is WhitespaceToken)
-                    .TakeWhile(o => !(o is OperatorToken && o.Value == Constants.CommandTerminator)).ToList();
-
-                if (statementTokens.Count == 0)
-                {
-                    break;
-                }
-
-                i += statementTokens.Count;
-                var queue = new Queue<Token>(statementTokens.Where(o => o is not WhitespaceToken));
-                expressions.Add(ParseStatement(queue));
+                var statementSegment = segment[statementRange];
+                yield return ParseStatement(new (statementSegment));
             }
-            return expressions;
+
+            static IEnumerable<Range> GetStatementSegments(IReadOnlyList<Token> tokens)
+            {
+                var startIndex = 0;
+                while (startIndex < tokens.Count)
+                {
+                    for (var endIndex = startIndex; endIndex < tokens.Count; ++endIndex)
+                    {
+                        if (tokens[endIndex] is not OperatorToken { Value: Constants.CommandTerminator })
+                        {
+                            continue;
+                        }
+
+                        yield return new(startIndex, endIndex);
+                        startIndex = endIndex + 1;
+                        break;
+                    }
+                }
+            }
         }
+
 
         private static IItem ParseStatement(Queue<Token> queue)
         {
@@ -37,7 +42,7 @@
 
             switch (first)
             {
-                case KeywordToken token when token.Value == Constants.SelectKeyword:
+                case KeywordToken { Value: Constants.SelectKeyword }:
                     {
                         if (Select.TryParse(queue, out var select))
                         {

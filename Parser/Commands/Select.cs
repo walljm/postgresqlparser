@@ -1,4 +1,6 @@
-﻿namespace Parser
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Parser
 {
     public class Select : IItem
     {
@@ -29,7 +31,7 @@
             From = from;
         }
 
-        public static bool TryParse(Queue<Token> queue, out Select? select)
+        public static bool TryParse(Queue<Token> queue, [NotNullWhen(true)] out Select? select)
         {
             select = null;
             Distinct? Distinct = null;

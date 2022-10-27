@@ -27,19 +27,15 @@
                 List<INamedReference> columns = new();
                 while (queue.TryPeek(out var token) && token is IdentifierToken)
                 {
-                    if (AliasedNamedReference.TryParse(queue, out var aliasedNamedReference))
-                    {
-                        columns.Add(aliasedNamedReference ?? throw new InvalidOperationException("Null returned when try parse was true."));
-                    }
-                    else
+                    if (!AliasedNamedReference.TryParse(queue, out var aliasedNamedReference))
                     {
                         throw new InvalidOperationException("Expected a table reference");
                     }
+                    columns.Add(aliasedNamedReference);
 
                     if (queue.TryPeek(out var nextColumn) && nextColumn.Value == Constants.CommaSeparator)
                     {
                         queue.Dequeue(); // remove the next item indicator so you're ready to check the next thing.
-                        continue; // you have more columns to process
                     }
                     else
                     {

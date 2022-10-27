@@ -26,30 +26,22 @@
             string? join = null;
             while (queue.TryPeek(out var token) && token is IdentifierToken)
             {
-                Conditional condition;
-
-                if (Conditional.TryParse(queue, out var conditional))
-                {
-                    condition = conditional ?? throw new InvalidOperationException("Null returned when try parse was true.");
-                }
-                else
+                if (!Conditional.TryParse(queue, out var conditional))
                 {
                     throw new InvalidOperationException("Expected a column reference");
                 }
 
-                if (queue.TryPeek(out var nextColumn) && (nextColumn.Value == Constants.AndKeyword || nextColumn.Value == Constants.OrKeyword))
+                if (queue.TryPeek(out var nextColumn) && nextColumn.Value is Constants.AndKeyword or Constants.OrKeyword)
                 {
-                    conditions.Add((join, condition));
+                    conditions.Add((join, conditional));
                     join = nextColumn.Value;
                     queue.Dequeue(); // remove the next item indicator so you're ready to check the next thing.
                     continue; // you have more columns to process
                 }
-                else
-                {
-                    conditions.Add((join, condition));
-                    where = new Where(conditions);
-                    return true; // exit the loop
-                }
+
+                conditions.Add((join, conditional));
+                where = new Where(conditions);
+                return true; // exit the loop
             }
 
             where = null;

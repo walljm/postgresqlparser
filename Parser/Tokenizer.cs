@@ -1,70 +1,57 @@
-﻿using System.Text;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
 namespace Parser
 {
-    public sealed partial class Tokenizer : IDisposable
+    public static partial class Tokenizer
     {
-        private readonly TextReader reader;
 
-        public Tokenizer(TextReader reader)
+
+        public static IEnumerable<Token> Scan(string? text)
         {
-            this.reader = reader;
-        }
-
-#pragma warning disable CA1816 // Dispose methods should call SuppressFinalize
-
-        public void Dispose() => ((IDisposable)reader).Dispose();
-
-#pragma warning restore CA1816 // Dispose methods should call SuppressFinalize
-
-        public IList<Token> Scan()
-        {
-            var tokens = new TokenList();
-            while (reader.Peek() != -1)
+            if (string.IsNullOrEmpty(text))
             {
-                // these must be done in this order...
-
-                if (WhitespaceToken.TryConsume(reader, out var whitespaceToken))
-                {
-                    tokens.AddIfNotNull(whitespaceToken);
-                    continue;
-                }
-                else if (NumericToken.TryConsume(reader, out var numericToken))
-                {
-                    tokens.AddIfNotNull(numericToken);
-                    continue;
-                }
-                else if (OperatorToken.TryConsume(reader, out var operatorToken))
-                {
-                    tokens.AddIfNotNull(operatorToken);
-                    continue;
-                }
-                else if (IdentifierToken.TryConsume(reader, out var identifierToken))
-                {
-                    tokens.AddIfNotNull(identifierToken);
-                    continue;
-                }
-                else if (StringLiteralToken.TryConsume(reader, out var stringLiteralToken))
-                {
-                    tokens.AddIfNotNull(stringLiteralToken);
-                    continue;
-                }
-                throw new Exception("Unknown character in expression: " + reader.Peek());
+                yield break;
             }
-
-            return tokens;
-        }
-    }
-
-    public class TokenList : List<Token>
-    {
-        public void AddIfNotNull(Token? token)
-        {
-            if (token is not null)
+            var startIndex = 0;
+            while (startIndex < text.Length)
             {
-                this.Add(token);
+                if (!Tokenizer.TryConsumeToken(text.AsSpan()[startIndex..], out var charsRead, out var token))
+                {
+                    throw new Exception($"Unknown character in expression: {text[0]}");
+                }
+                startIndex += charsRead;
+                yield return token;
             }
         }
+
+
+
+        private static bool TryConsumeToken(
+            ReadOnlySpan<char> text,
+            out int charsRead,
+            [NotNullWhen(true)] out Token? token
+        )
+        {
+            token = ConsumeWhiteSpace(text, out charsRead)
+                   ?? ConsumeNumeric(text, out charsRead)
+                   ?? ConsumeOperator(text, out charsRead)
+                   ?? ConsumeIdentifier(text, out charsRead)
+                   ?? ConsumeString(text, out charsRead);
+            return token is not null;
+        }
+
+        private static Token? ConsumeWhiteSpace(ReadOnlySpan<char> text, out int charsRead)
+            => WhitespaceToken.TryConsume(text, out charsRead, out var token) ? token : default;
+
+        private static Token? ConsumeNumeric(ReadOnlySpan<char> text, out int charsRead)
+            => NumericToken.TryConsume(text, out charsRead, out var token) ? token : default;
+        private static Token? ConsumeOperator(ReadOnlySpan<char> text, out int charsRead)
+            => OperatorToken.TryConsume(text, out charsRead, out var token) ? token : default;
+        private static Token? ConsumeIdentifier(ReadOnlySpan<char> text, out int charsRead)
+            => IdentifierToken.TryConsume(text, out charsRead, out var token) ? token : default;
+        private static Token? ConsumeString(ReadOnlySpan<char> text, out int charsRead)
+            => StringLiteralToken.TryConsume(text, out charsRead, out var token) ? token : default;
     }
 
     public abstract record Token(string Value);
@@ -87,12 +74,7 @@ namespace Parser
         }
         public static bool IsValidChar(char c)
         {
-            return char.IsDigit(c)
-                || c == '.'
-                || c == 'e'
-                || c == '-'
-                || c == '+'
-                ;
+            return c is >= '0' and <= '9' or '.' or 'e' or '-' or '+';
         }
         public static bool IsValidChar(int i)
         {
@@ -107,37 +89,104 @@ namespace Parser
         5e2
         1.925e-3
         */
-        public static bool TryConsume(TextReader reader, out NumericToken? value)
+
+
+        public static bool TryConsume(string? text, [NotNullWhen(true)] out NumericToken? value)
+            => TryConsume(text, out var charsRead, out value) && charsRead == text?.Length;
+        public static bool TryConsume(ReadOnlySpan<char> text, out int charsRead, [NotNullWhen(true)] out NumericToken? value)
         {
-            if (!reader.CanRead() || !IsValidStartChar(reader.Peek()))
+            /*
+            digits
+            digits.[digits][e[+-]digits]
+            [digits].digits[e[+-]digits]
+            digitse[+-]digits
+
+            where digits is one or more decimal digits (0 through 9). At least one digit must be before or after the decimal point,
+            if one is used. At least one digit must follow the exponent marker (e), if one is present. There cannot be any spaces
+            or other characters embedded in the constant. Note that any leading plus or minus sign is not actually considered part
+            of the constant; it is an operator applied to the constant.
+            */
+
+            charsRead = default;
+            value = default;
+
+            var originalText = text;
+            var wholeDigitCount = ReadDigits(ref text);
+            var hasDecimal = TryConsumeChar(ref text, '.');
+            var fractionalDigitCount = ReadDigits(ref text);
+            var hasExponent = false;
+            var hasExponentSign = false;
+            var exponentDigitCount = 0;
+
+            if (wholeDigitCount is 0 && fractionalDigitCount is 0)
             {
-                value = null;
+                charsRead = default;
+                value = default;
                 return false;
             }
-
-            var sb = new StringBuilder();
-            sb.Append(reader.ReadChar());
-
-            while (reader.CanRead() && IsValidChar(reader.Peek()))
+            hasExponent = TryConsumeChar(ref text, 'e');
+            if (hasExponent)
             {
-                sb.Append(reader.ReadChar());
+                hasExponentSign = HasSign(ref text);
+                exponentDigitCount = ReadDigits(ref text);
+                if (exponentDigitCount is 0)
+                {
+                    return false;
+                }
             }
 
-            value = new NumericToken(sb.ToString());
+            charsRead = wholeDigitCount
+                        + BoolToInt(hasDecimal)
+                        + fractionalDigitCount
+                        + BoolToInt(hasExponent)
+                        + BoolToInt(hasExponentSign)
+                        + exponentDigitCount;
+            value = new (new string(originalText[..charsRead]));
             return true;
+
+            static int BoolToInt(bool value) => value ? 1 : 0;
+            static int GetDigitLength(ReadOnlySpan<char> text)
+            {
+                for (var i = 0; i < text.Length; ++i)
+                {
+                    if (text[i] is not (>= '0' and <= '9'))
+                        return i;
+                }
+                return text.Length;
+            }
+            static bool HasSign(ref ReadOnlySpan<char> text)
+                => TryConsumeChar(ref text, '+')
+                   || TryConsumeChar(ref text, '-');
+
+            static bool TryConsumeChar(ref ReadOnlySpan<char> text, char ch)
+            {
+                if (text.IsEmpty || text[0] != ch)
+                {
+                    return false;
+                }
+                text = text[1..];
+                return true;
+            }
+            static int ReadDigits(ref ReadOnlySpan<char> text)
+            {
+                var digitLength = GetDigitLength(text);
+                text = text[digitLength..];
+                return digitLength;
+            }
         }
-    };
+
+    }
     //tested
     public record OperatorToken(string Value) : Token(Value)
     {
-        private static readonly HashSet<char> nextOperators = new(new char[]
+        private static readonly HashSet<char> nextOperators = new(new[]
         {
             // boolean
             '<', '>', '=',
             ':',']','[',
         });
 
-        private static readonly HashSet<char> operators = new(new char[]
+        private static readonly HashSet<char> operators = new(new[]
         {
             // boolean
             '<', '>', '=',
@@ -146,7 +195,7 @@ namespace Parser
             // delimiters
             '~', '!', '@', '#', '%', '^', '&', '|', '?', '`',
         });
-        private static readonly HashSet<char> specialChars = new(new char[]
+        private static readonly HashSet<char> specialChars = new(new[]
         {
             // special characters
             '$','(',')','[',']',',',';',':','.',
@@ -185,24 +234,31 @@ namespace Parser
         This restriction allows PostgreSQL to parse SQL-compliant queries without requiring spaces between tokens.
 
          */
-        public static bool TryConsume(TextReader reader, out OperatorToken? value)
+
+        public static bool TryConsume(string? text, [NotNullWhen(true)] out OperatorToken? value)
+            => TryConsume(text, out var charsRead, out value) && charsRead == text?.Length;
+        public static bool TryConsume(ReadOnlySpan<char> text, out int charsRead, out OperatorToken? value)
         {
-            if (!reader.CanRead() || !IsOperatorChar(reader.Peek()))
+            (value, charsRead) = (default, default);
+            for (charsRead = 0; charsRead < text.Length; ++charsRead)
             {
-                value = null;
-                return false;
+                if (!IsValid(charsRead is 0, text[charsRead]))
+                {
+                    break;
+                }
             }
 
-            var sb = new StringBuilder();
-            sb.Append(reader.ReadChar());
+            value = charsRead is 0
+                ? null
+                : new OperatorToken(new string(text[..charsRead]));
+            return value is not null;
 
-            while (reader.CanRead() && IsNextOperatorChar(reader.Peek()))
+            static bool IsValid(bool isFirst, char ch)
             {
-                sb.Append((char)reader.Read());
+                return isFirst
+                    ? IsOperatorChar(ch)
+                    : IsNextOperatorChar(ch);
             }
-
-            value = new OperatorToken(sb.ToString());
-            return true;
         }
     };
     //tested
@@ -233,37 +289,60 @@ namespace Parser
             return char.IsLetter(c) || c == '_';
         }
 
-        public static bool TryConsume(TextReader reader, out IdentifierToken? value)
+        public static bool TryConsume(string? text, [NotNullWhen(true)] out IdentifierToken? value)
+            => TryConsume(text, out var charsRead, out value) && charsRead == text?.Length;
+        public static bool TryConsume(ReadOnlySpan<char> text, out int charsRead, [NotNullWhen(true)] out IdentifierToken? value)
         {
-            if (TryConsumeQuoted(reader, out var quotedIdentifier))
+            value = default;
+            if (TryConsumeQuoted(text, out charsRead, out var quotedIdentifier))
             {
                 value = quotedIdentifier;
                 return true;
             }
-
-            var c = (char)reader.Peek();
-            if (!IsIdentifierBeginningChar(c))
+            for (charsRead = 0; charsRead < text.Length; ++charsRead)
             {
-                value = null;
+                if (!IsValid(charsRead is 0, text[charsRead]))
+                {
+                    break;
+                }
+            }
+
+            if (charsRead is 0)
+            {
                 return false;
             }
-
-            var sb = new StringBuilder();
-            while (IsIdentifierChar((char)reader.Peek()))
+            var valueString = new string(text[..charsRead]);
+            value = Tokenizer.Keywords.Contains(valueString) switch
             {
-                sb.Append((char)reader.Read());
-            }
-            var v = sb.ToString().ToUpper();
-
-            value = Tokenizer.Keywords.Contains(v)
-                ? new KeywordToken(v)
-                : new IdentifierToken(sb.ToString());
+                true when IsAllUppercase(valueString) => new KeywordToken(valueString),
+                true => new KeywordToken(valueString.ToUpper()),
+                _ => new IdentifierToken(valueString),
+            };
             return true;
+
+            static bool IsAllUppercase(ReadOnlySpan<char> text)
+            {
+                foreach (var ch in text)
+                {
+                    if (!char.IsUpper(ch))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            static bool IsValid(bool isFirst, char ch)
+            {
+                return isFirst
+                    ? IsIdentifierBeginningChar(ch)
+                    : IsIdentifierChar(ch);
+            }
         }
+
 
         // TODO: someday, lets support the U&"" unicode variation.
         // TODO: should we allow escaped quotes in this?
-        private static bool TryConsumeQuoted(TextReader reader, out QuotedIdentifier? value)
+        public static bool TryConsumeQuoted(TextReader reader, [NotNullWhen(true)] out QuotedIdentifier? value)
         {
             if (!reader.CanRead() || reader.PeekChar() != QuotedDelimiter)
             {
@@ -274,95 +353,177 @@ namespace Parser
             value = new QuotedIdentifier(reader.ReadWrappedString(QuotedDelimiter));
             return true;
         }
+
+        public static bool TryConsumeQuoted(ReadOnlySpan<char> text, out int charsRead, [NotNullWhen(true)] out QuotedIdentifier? value)
+        {
+            (value, charsRead) = (default, default);
+            if (text.IsEmpty || text[0] != QuotedDelimiter)
+            {
+                return false;
+            }
+            if (text[1..].IndexOf(QuotedDelimiter) is not (>= 0 and var insideLength))
+            {
+                return false;
+            }
+            charsRead = insideLength + 2; // Include 2 for the quotes
+            value = new (text[..charsRead].ToString());
+            return true;
+        }
     };
     //tested
-    public record KeywordToken(string Value) : IdentifierToken(Value)
-    {
-    };
+    public record KeywordToken(string Value) : IdentifierToken(Value);
     //tested
-    public record QuotedIdentifier(string Value) : IdentifierToken(Value)
-    {
-    };
+    public record QuotedIdentifier(string Value) : IdentifierToken(Value);
     //tested
     public record StringLiteralToken(string Value) : Token(Value)
     {
-        public static readonly char Delimiter = '\'';
+        public const char Delimiter = '\'';
+
+        public static bool TryConsume(string? text, [NotNullWhen(true)] out StringLiteralToken? value)
+            => TryConsume(text, out var charsRead, out value) && charsRead == text?.Length;
 
         // TODO: handle '' escaping
         // TODO: you should support the E'' escaped string format at some point.
-        public static bool TryConsume(TextReader reader, out StringLiteralToken? value)
+        public static bool TryConsume(ReadOnlySpan<char> text, out int charsRead, [NotNullWhen(true)] out StringLiteralToken? value)
         {
-            if (!reader.CanRead() || (char)reader.Peek() != Delimiter)
+            (charsRead, value) = (default, default);
+            if (!GetStringPart(ref text, ref charsRead, out var firstPart))
             {
-                value = null;
                 return false;
             }
-
-            var sb = new StringBuilder(); // initialize with the tick
-            sb.Append(reader.ReadChar());
-            // if its not the ' and its not escaped.
-            while (reader.CanRead() && (reader.PeekChar() != Delimiter || sb.FromEnd(1) == '\\'))
+            if (!GetSubsequentPartRef(ref text, ref charsRead, out var subsequentPart))
             {
-                sb.Append(reader.ReadChar());
+                // If there's only one part, just return that.
+                charsRead = firstPart.Length;
+                value = new (new string(firstPart));
+                return true;
             }
+            // according to postgres spec, we ignore two ticks with a new line between them.
+            //  i.e. 'foo' \n 'bar' becomes 'foobar'
 
-            if (!reader.CanRead())
+            var sb = new StringBuilder();
+            sb.Append(Delimiter);
+            sb.Append(firstPart[1..^1]); // Make sure we strip the quotes
+            sb.Append(subsequentPart[1..^1]);
+            while (GetSubsequentPartRef(ref text, ref charsRead, out subsequentPart))
             {
-                throw new InvalidOperationException("Premature end of string literal");
+                sb.Append(subsequentPart[1..^1]);
             }
-
-            var maybeClosing = (char)reader.Read(); // append the closeing delimiter.
-            var ws = WhitespaceToken.Consume(reader); // consume any whitespace.
-            if (ws.HasWhitespace && ws.HasNewline && (char)reader.Peek() == Delimiter)
-            {
-                // according to postgres spec, we ignore two ticks with a new line between them.
-                //  i.e. 'foo' \n 'bar' becomes 'foobar'
-                if (TryConsume(reader, out value))
-                {
-                    sb.Append(value?.Value?.Substring(1)); // consume the next literal.
-                }
-            }
-            else
-            {
-                // its not a new line delimited string, so add the closing tick.
-                sb.Append(maybeClosing);
-            }
-
+            sb.Append(Delimiter);
             value = new StringLiteralToken(sb.ToString());
             return true;
-        }
-    };
-    //tested
-    public record WhitespaceToken(bool HasNewline, bool HasWhitespace, string Value) : Token(Value)
-    {
-        public static bool TryConsume(TextReader reader, out WhitespaceToken value)
-        {
-            if (!reader.CanRead() || !char.IsWhiteSpace(reader.PeekChar()))
+
+            static bool GetSubsequentPartRef(ref ReadOnlySpan<char> text, ref int charsRead, out ReadOnlySpan<char> outerStringPart)
             {
-                value = new WhitespaceToken(false, false, string.Empty);
-                return false;
+                outerStringPart = default;
+                var textCopy = text;
+                var charsReadCopy = charsRead;
+                if (!StartsWithNewLine(ref textCopy, ref charsReadCopy))
+                    return false;
+                if(!GetStringPart(ref textCopy, ref charsReadCopy, out outerStringPart))
+                    return false;
+                text = textCopy;
+                charsRead = charsReadCopy;
+                return true;
             }
 
-            value = Consume(reader);
+            static bool StartsWithNewLine(ref ReadOnlySpan<char> text, ref int charsRead)
+            {
+                // If text begins with leading whitespace, and that leading whitespace contains '\n', then:
+                //     - Increment charsRead with the length of the leading whitespace
+                //     - Trim the leading whitespace from text
+                //     - Return true
+                // Otherwise, return false
+                var trimmedText = text.TrimStart();
+                var trimLength = text.Length - trimmedText.Length;
+                var leading = text[..trimLength];
+                if (leading.Contains('\n') is false)
+                {
+                    return false;
+                }
+                charsRead += trimLength;
+                text = trimmedText;
+                return true;
+            }
+
+            static bool GetStringPart(ref ReadOnlySpan<char> text, ref int charsRead, out ReadOnlySpan<char> outerStringPart)
+            {
+                outerStringPart = default;
+                if (
+                    text.IsEmpty
+                    || text[0] != Delimiter
+                )
+                {
+                    return false;
+                }
+                var inner = text[1..];
+                if (GetStringLength(inner) is not (> 0 and var length))
+                {
+                    return false;
+                }
+                outerStringPart = text[..(length + 2)];
+                text = text[outerStringPart.Length..];
+                charsRead += outerStringPart.Length;
+                return true;
+            }
+
+            static int GetStringLength(ReadOnlySpan<char> text)
+            {
+                for (var i = 0; i < text.Length; ++i)
+                {
+                    switch (text[i])
+                    {
+                        case Delimiter:
+                            return i;
+                        case '\\' when i < text.Length - 1 && text[i + 1] == Delimiter:
+                            ++i; // Skip the quote char
+                            break;
+                    }
+                }
+                return text.Length;
+            }
+        }
+
+    };
+    //tested
+    public record WhitespaceToken(string Value) : Token(Value)
+    {
+        public bool HasNewline => this.Value.Contains('\n');
+
+        public static bool TryConsume(string? text, [NotNullWhen(true)] out WhitespaceToken? value)
+            => TryConsume(text, out var charsRead, out value) && charsRead == text?.Length;
+        public static bool TryConsume(ReadOnlySpan<char> span, out int charsRead, [NotNullWhen(true)] out WhitespaceToken? value)
+        {
+            for (charsRead = 0; charsRead < span.Length; ++charsRead)
+            {
+                if (char.IsWhiteSpace(span[charsRead]) is false)
+                {
+                    break;
+                }
+            }
+            if (charsRead is 0)
+            {
+                value = default;
+                return false;
+            }
+            span = span[..charsRead];
+            value = new WhitespaceToken(new string(span));
             return true;
         }
+
+        public static WhitespaceToken Consume(ReadOnlySpan<char> span)
+            => Consume(span, out _);
+        public static WhitespaceToken Consume(ReadOnlySpan<char> span, out int charsRead)
+            => TryConsume(span, out charsRead, out var token) ? token : new(string.Empty);
 
         public static WhitespaceToken Consume(TextReader reader)
         {
-            bool hasNewline = false;
-            bool hasWhitespace = false;
             var sb = new StringBuilder();
             while (char.IsWhiteSpace((char)reader.Peek()))
             {
-                hasWhitespace = true;
-                var c = reader.ReadChar(); // throw away the whitespace.
-                if (c == '\n')
-                {
-                    hasNewline = true;
-                }
-                sb.Append((char)c);
+                sb.Append(reader.ReadChar());
             }
-            return new WhitespaceToken(hasNewline, hasWhitespace, sb.ToString());
+            return new WhitespaceToken(sb.ToString());
         }
     };
 }
