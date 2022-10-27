@@ -5,8 +5,6 @@ namespace Parser
 {
     public static partial class Tokenizer
     {
-
-
         public static IEnumerable<Token> Scan(string? text)
         {
             if (string.IsNullOrEmpty(text))
@@ -24,8 +22,6 @@ namespace Parser
                 yield return token;
             }
         }
-
-
 
         private static bool TryConsumeToken(
             ReadOnlySpan<char> text,
@@ -46,10 +42,13 @@ namespace Parser
 
         private static Token? ConsumeNumeric(ReadOnlySpan<char> text, out int charsRead)
             => NumericToken.TryConsume(text, out charsRead, out var token) ? token : default;
+
         private static Token? ConsumeOperator(ReadOnlySpan<char> text, out int charsRead)
             => OperatorToken.TryConsume(text, out charsRead, out var token) ? token : default;
+
         private static Token? ConsumeIdentifier(ReadOnlySpan<char> text, out int charsRead)
             => IdentifierToken.TryConsume(text, out charsRead, out var token) ? token : default;
+
         private static Token? ConsumeString(ReadOnlySpan<char> text, out int charsRead)
             => StringLiteralToken.TryConsume(text, out charsRead, out var token) ? token : default;
     }
@@ -89,7 +88,6 @@ namespace Parser
         5e2
         1.925e-3
         */
-
 
         public static bool TryConsume(string? text, [NotNullWhen(true)] out NumericToken? value)
             => TryConsume(text, out var charsRead, out value) && charsRead == text?.Length;
@@ -141,7 +139,7 @@ namespace Parser
                         + BoolToInt(hasExponent)
                         + BoolToInt(hasExponentSign)
                         + exponentDigitCount;
-            value = new (new string(originalText[..charsRead]));
+            value = new(new string(originalText[..charsRead]));
             return true;
 
             static int BoolToInt(bool value) => value ? 1 : 0;
@@ -174,7 +172,6 @@ namespace Parser
                 return digitLength;
             }
         }
-
     }
     //tested
     public record OperatorToken(string Value) : Token(Value)
@@ -339,7 +336,6 @@ namespace Parser
             }
         }
 
-
         // TODO: someday, lets support the U&"" unicode variation.
         // TODO: should we allow escaped quotes in this?
         public static bool TryConsumeQuoted(TextReader reader, [NotNullWhen(true)] out QuotedIdentifier? value)
@@ -366,7 +362,7 @@ namespace Parser
                 return false;
             }
             charsRead = insideLength + 2; // Include 2 for the quotes
-            value = new (text[..charsRead].ToString());
+            value = new(text[..charsRead].ToString());
             return true;
         }
     };
@@ -395,7 +391,7 @@ namespace Parser
             {
                 // If there's only one part, just return that.
                 charsRead = firstPart.Length;
-                value = new (new string(firstPart));
+                value = new(new string(firstPart));
                 return true;
             }
             // according to postgres spec, we ignore two ticks with a new line between them.
@@ -420,7 +416,7 @@ namespace Parser
                 var charsReadCopy = charsRead;
                 if (!StartsWithNewLine(ref textCopy, ref charsReadCopy))
                     return false;
-                if(!GetStringPart(ref textCopy, ref charsReadCopy, out outerStringPart))
+                if (!GetStringPart(ref textCopy, ref charsReadCopy, out outerStringPart))
                     return false;
                 text = textCopy;
                 charsRead = charsReadCopy;
@@ -475,6 +471,7 @@ namespace Parser
                     {
                         case Delimiter:
                             return i;
+
                         case '\\' when i < text.Length - 1 && text[i + 1] == Delimiter:
                             ++i; // Skip the quote char
                             break;
@@ -483,7 +480,6 @@ namespace Parser
                 return text.Length;
             }
         }
-
     };
     //tested
     public record WhitespaceToken(string Value) : Token(Value)

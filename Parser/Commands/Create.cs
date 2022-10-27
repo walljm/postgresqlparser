@@ -26,9 +26,9 @@ namespace Parser
 
         public TableType? TableType { get; init; }
         public bool HasIfNotExists { get; init; } = false;
-        public string TableName {get; init;}
+        public string TableName { get; init; }
 
-        public List<ColumnDefinition> ColumnDefinitions {get;init;}
+        public List<ColumnDefinition> ColumnDefinitions { get; init; }
 
         public Create()
         {
@@ -65,7 +65,7 @@ namespace Parser
 
                             if (Columns.TryParse(queue, out var columns))
                             {
-                                Columns = columns;
+                                //Columns = columns;
                             }
                             else
                             {
@@ -81,7 +81,7 @@ namespace Parser
                         throw new InvalidOperationException("Failed to process token! Infinite loop detected.");
                 }
             }
-            create = ;
+            create = null;
             return true;
         }
 
@@ -89,11 +89,7 @@ namespace Parser
         {
             var indent = indentSize * indentCount;
             var pad = string.Empty.PadLeft(indent);
-            return $@"{pad}SELECT{this.Distinct?.Print(indentSize, indentCount) ?? string.Empty}
-{this.Columns.Print(indentSize, indentCount + 1)}
-{this.From.Print(indentSize, indentCount)}{MaybePrintWhere(indentSize, indentCount)}{MaybePrintGroupBy(indentSize, indentCount)}{MaybePrintOrderBy(indentSize, indentCount)}{MaybePrintOffset(indentSize, indentCount)}{MaybePrintLimit(indentSize, indentCount)}
-";
+            return $@"";
         }
-
     }
 }
